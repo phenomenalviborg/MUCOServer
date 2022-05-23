@@ -15,4 +15,4 @@ MonoBehaviour:
   EntryScene: {fileID: 102900000, guid: 56e02c62280735f498837d0300d094b1, type: 3}
   MenuScene: {fileID: 102900000, guid: a86ed2feecd8a41498e8dff9b45195b5, type: 3}
   ExperienceConfigurations: []
-  ManualInitialization: 0
+  ManualInitialization: 1
