@@ -22,7 +22,7 @@
         "com.phenomenalviborg.muconet": "1.0.0",
         "com.phenomenalviborg.antilatencysdk": "1.0.0"
       },
-      "hash": "cb73193c80a039586919d3fc4ae901a094fd6f7e"
+      "hash": "48ebb09cfb2d1ae856371653a08217250decaab4"
     },
     "com.quantumcalzone.unitygitpackageupdater": {
       "version": "https://github.com/QuantumCalzone/UnityGitPackageUpdater.git#upm",
