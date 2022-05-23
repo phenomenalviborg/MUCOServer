@@ -1,5 +1,6 @@
 using System;
 using UnityEngine;
+using PhenomenalViborg.MUCONet;
 
 namespace PhenomenalViborg.MUCOSDK
 {
@@ -33,7 +34,7 @@ namespace PhenomenalViborg.MUCOSDK
             m_PortString = GUILayout.TextField(m_PortString, 8);
             GUILayout.EndHorizontal();
 
-            
+
             GUI.enabled = ServerNetworkManager.GetInstance().IsStarted();
             if (GUILayout.Button("Stop Server"))
             {
@@ -51,7 +52,11 @@ namespace PhenomenalViborg.MUCOSDK
 
         private void RenderInfoWindow(int windowID)
         {
-            GUILayout.Label("test");
+            GUILayout.Label("Active Connections");
+            foreach (MUCOServer.MUCORemoteClient clientInfo in ServerNetworkManager.GetInstance().Server.ClientInfo.Values)
+            {
+                GUILayout.Label($" - Client {clientInfo.UniqueIdentifier}");
+            }
 
             /*GUILayout.BeginVertical();
             GUILayout.Label(string.Format("<b>Server</b>\n" +
