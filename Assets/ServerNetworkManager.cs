@@ -38,6 +38,7 @@ namespace PhenomenalViborg.MUCOSDK
             Server.RegisterPacketHandler((int)MUCOClientPackets.RotateUser, HandleRotateUser);
             Server.RegisterPacketHandler((int)MUCOClientPackets.DeviceInfo, HandleDeviceInfo);
             Server.RegisterPacketHandler((int)MUCOClientPackets.ReplicatedMulticast, HandleReplicatedMulticast);
+            Server.RegisterPacketHandler((int)MUCOClientPackets.ReplicatedUnicast, HandleReplicatedUnicast);
             Server.OnClientConnectedEvent += OnClientConnected;
             Server.OnClientDisconnectedEvent += OnClientDisconnected;
         }
@@ -184,10 +185,33 @@ namespace PhenomenalViborg.MUCOSDK
         {
             MUCOThreadManager.ExecuteOnMainThread(() =>
             {
-                Debug.Log(packet.GetReadOffset());
-                using (MUCOPacket multicastPacket = new MUCOPacket(packet.ReadBytes(packet.UnreadLength())))
+                int packetIdentifier = packet.ReadInt();
+                using (MUCOPacket multicastPacket = new MUCOPacket((int)packetIdentifier))
                 {
+                    multicastPacket.WriteBytes(packet.ReadBytes(packet.GetSize() - packet.GetReadOffset()));
                     Server.SendPacketToAll(multicastPacket);
+                }
+            });
+        }
+
+        private void HandleReplicatedUnicast(MUCOPacket packet, int fromClient)
+        {
+            MUCOThreadManager.ExecuteOnMainThread(() =>
+            {
+                int receiverIdentifier = packet.ReadInt();
+                if (!Server.ClientInfo.ContainsKey(receiverIdentifier))
+                {
+                    Debug.Log($"Failed to find the designated receiver for unicast packet. The requested identifier was: {receiverIdentifier}.");
+                    return;
+                }
+                MUCOServer.MUCORemoteClient receiver = Server.ClientInfo[receiverIdentifier];
+
+                int packetIdentifier = packet.ReadInt();
+
+                using (MUCOPacket unicastPacket = new MUCOPacket((int)packetIdentifier))
+                {
+                    unicastPacket.WriteBytes(packet.ReadBytes(packet.GetSize() - packet.GetReadOffset()));
+                    Server.SendPacket(receiver, unicastPacket);
                 }
             });
         }
