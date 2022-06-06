@@ -1,9 +1,6 @@
 {
   "dependencies": {
-    "com.phenomenalviborg.antilatencysdk": "https://github.com/phenomenalviborg/com.phenomenalviborg.antilatencysdk.git",
-    "com.phenomenalviborg.muconet": "https://github.com/phenomenalviborg/com.phenomenalviborg.muconet.git",
-    "com.phenomenalviborg.mucosdk": "https://github.com/phenomenalviborg/com.phenomenalviborg.mucosdk.git",
-    "com.quantumcalzone.unitygitpackageupdater": "https://github.com/QuantumCalzone/UnityGitPackageUpdater.git#upm",
+    "com.phenomenalviborg.mucosdk": "1.0.0",
     "com.unity.collab-proxy": "1.15.15",
     "com.unity.ide.rider": "2.0.7",
     "com.unity.ide.visualstudio": "2.0.14",

@@ -1,35 +1,10 @@
 {
   "dependencies": {
-    "com.phenomenalviborg.antilatencysdk": {
-      "version": "https://github.com/phenomenalviborg/com.phenomenalviborg.antilatencysdk.git",
-      "depth": 0,
-      "source": "git",
-      "dependencies": {},
-      "hash": "d4d4a8375247ca8784fb6c9bf2814fb5b779defc"
-    },
-    "com.phenomenalviborg.muconet": {
-      "version": "https://github.com/phenomenalviborg/com.phenomenalviborg.muconet.git",
-      "depth": 0,
-      "source": "git",
-      "dependencies": {},
-      "hash": "5a0d8c582bfad9ed4bf3777209250f0ade9ebead"
-    },
     "com.phenomenalviborg.mucosdk": {
-      "version": "https://github.com/phenomenalviborg/com.phenomenalviborg.mucosdk.git",
+      "version": "file:com.phenomenalviborg.mucosdk",
       "depth": 0,
-      "source": "git",
-      "dependencies": {
-        "com.phenomenalviborg.muconet": "1.0.0",
-        "com.phenomenalviborg.antilatencysdk": "1.0.0"
-      },
-      "hash": "48ebb09cfb2d1ae856371653a08217250decaab4"
-    },
-    "com.quantumcalzone.unitygitpackageupdater": {
-      "version": "https://github.com/QuantumCalzone/UnityGitPackageUpdater.git#upm",
-      "depth": 0,
-      "source": "git",
-      "dependencies": {},
-      "hash": "b01cc772d53b9fecfd66d9f8dca31e064565f219"
+      "source": "embedded",
+      "dependencies": {}
     },
     "com.unity.collab-proxy": {
       "version": "1.15.15",

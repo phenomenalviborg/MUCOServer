@@ -34,11 +34,8 @@ namespace PhenomenalViborg.MUCOSDK
             MUCOLogger.LogLevel = m_LogLevel;
 
             Server = new MUCOServer();
-            Server.RegisterPacketHandler((int)MUCOClientPackets.TranslateUser, HandleTranslateUser);
-            Server.RegisterPacketHandler((int)MUCOClientPackets.RotateUser, HandleRotateUser);
-            Server.RegisterPacketHandler((int)MUCOClientPackets.DeviceInfo, HandleDeviceInfo);
-            Server.RegisterPacketHandler((int)MUCOClientPackets.ReplicatedMulticast, HandleReplicatedMulticast);
-            Server.RegisterPacketHandler((int)MUCOClientPackets.ReplicatedUnicast, HandleReplicatedUnicast);
+            Server.RegisterPacketHandler((System.UInt16)EPacketIdentifier.ClientGenericReplicatedUnicast, HandleGenericReplicatedUnicast);
+            Server.RegisterPacketHandler((System.UInt16)EPacketIdentifier.ClientGenericReplicatedMulticast, HandleGenericReplicatedMulticast);
             Server.OnClientConnectedEvent += OnClientConnected;
             Server.OnClientDisconnectedEvent += OnClientDisconnected;
         }
@@ -87,7 +84,7 @@ namespace PhenomenalViborg.MUCOSDK
                         continue;
                     }
 
-                    MUCOPacket packet = new MUCOPacket((int)MUCOServerPackets.SpawnUser);
+                    MUCOPacket packet = new MUCOPacket((System.UInt16)EPacketIdentifier.ServerUserConnected);
                     packet.WriteInt(clientInfo.UniqueIdentifier);
                     Server.SendPacket(newClientInfo, packet);
                 }
@@ -95,7 +92,7 @@ namespace PhenomenalViborg.MUCOSDK
                 // Spawn the new user on all clients (includeing the new client).
                 foreach (MUCOServer.MUCORemoteClient clientInfo in Server.ClientInfo.Values)
                 {
-                    MUCOPacket packet = new MUCOPacket((int)MUCOServerPackets.SpawnUser);
+                    MUCOPacket packet = new MUCOPacket((System.UInt16)EPacketIdentifier.ServerUserConnected);
                     packet.WriteInt(newClientInfo.UniqueIdentifier);
                     Server.SendPacket(clientInfo, packet);
                 }
@@ -119,7 +116,7 @@ namespace PhenomenalViborg.MUCOSDK
                         continue;
                     }
 
-                    MUCOPacket packet = new MUCOPacket((int)MUCOServerPackets.RemoveUser);
+                    MUCOPacket packet = new MUCOPacket((System.UInt16)EPacketIdentifier.ServerUserConnected);
                     packet.WriteInt(disconnectingClientInfo.UniqueIdentifier);
                     Server.SendPacket(clientInfo, packet);
                 }
@@ -127,48 +124,8 @@ namespace PhenomenalViborg.MUCOSDK
         }
 
         # region Packet handlers
-        private void HandleTranslateUser(MUCOPacket packet, int fromClient)
-        {
-            MUCOThreadManager.ExecuteOnMainThread(() =>
-            {
-                // Update the clinet position locally on the server.
-                float positionX = packet.ReadFloat();
-                float positionY = packet.ReadFloat();
-                float positionZ = packet.ReadFloat();
-                m_UserObjects[fromClient].transform.position = new Vector3(positionX, positionY, positionZ);
 
-                // Replicate the packet to the other clients.
-                MUCOPacket replicatePacket = new MUCOPacket((int)MUCOServerPackets.TranslateUser);
-                replicatePacket.WriteInt(fromClient);
-                replicatePacket.WriteFloat(positionX);
-                replicatePacket.WriteFloat(positionY);
-                replicatePacket.WriteFloat(positionZ);
-                Server.SendPacketToAllExceptOne(replicatePacket, Server.ClientInfo[fromClient]);
-            });
-        }
-
-        private void HandleRotateUser(MUCOPacket packet, int fromClient)
-        {
-            MUCOThreadManager.ExecuteOnMainThread(() =>
-            {
-                // Update the clinet rotation locally on the server.
-                float eulerAnglesX = packet.ReadFloat();
-                float eulerAnglesY = packet.ReadFloat();
-                float eulerAnglesZ = packet.ReadFloat();
-
-                m_UserObjects[fromClient].transform.rotation = Quaternion.Euler(new Vector3(eulerAnglesX, eulerAnglesY, eulerAnglesZ));
-
-                // Replicate the packet to the other clients.
-                MUCOPacket replicatePacket = new MUCOPacket((int)MUCOServerPackets.RotateUser);
-                replicatePacket.WriteInt(fromClient);
-                replicatePacket.WriteFloat(eulerAnglesX);
-                replicatePacket.WriteFloat(eulerAnglesY);
-                replicatePacket.WriteFloat(eulerAnglesZ);
-                Server.SendPacketToAllExceptOne(replicatePacket, Server.ClientInfo[fromClient]);
-            });
-        }
-
-        private void HandleDeviceInfo(MUCOPacket packet, int fromClient)
+        /*private void HandleDeviceInfo(MUCOPacket packet, int fromClient)
         {
             DeviceInfo deviceInfo = new DeviceInfo { };
 
@@ -179,14 +136,14 @@ namespace PhenomenalViborg.MUCOSDK
             deviceInfo.OperatingSystem = packet.ReadString();
 
             ClientDeviceInfo[fromClient] = deviceInfo;
-        }
+        }*/
 
-        private void HandleReplicatedMulticast(MUCOPacket packet, int fromClient)
+        private void HandleGenericReplicatedMulticast(MUCOPacket packet, int fromClient)
         {
             MUCOThreadManager.ExecuteOnMainThread(() =>
             {
-                int packetIdentifier = packet.ReadInt();
-                using (MUCOPacket multicastPacket = new MUCOPacket((int)packetIdentifier))
+                System.UInt16 packetIdentifier = packet.ReadUInt16();
+                using (MUCOPacket multicastPacket = new MUCOPacket(packetIdentifier))
                 {
                     multicastPacket.WriteBytes(packet.ReadBytes(packet.GetSize() - packet.GetReadOffset()));
                     Server.SendPacketToAll(multicastPacket);
@@ -194,7 +151,7 @@ namespace PhenomenalViborg.MUCOSDK
             });
         }
 
-        private void HandleReplicatedUnicast(MUCOPacket packet, int fromClient)
+        private void HandleGenericReplicatedUnicast(MUCOPacket packet, int fromClient)
         {
             MUCOThreadManager.ExecuteOnMainThread(() =>
             {
@@ -206,9 +163,8 @@ namespace PhenomenalViborg.MUCOSDK
                 }
                 MUCOServer.MUCORemoteClient receiver = Server.ClientInfo[receiverIdentifier];
 
-                int packetIdentifier = packet.ReadInt();
-
-                using (MUCOPacket unicastPacket = new MUCOPacket((int)packetIdentifier))
+                System.UInt16 packetIdentifier = packet.ReadUInt16();
+                using (MUCOPacket unicastPacket = new MUCOPacket(packetIdentifier))
                 {
                     unicastPacket.WriteBytes(packet.ReadBytes(packet.GetSize() - packet.GetReadOffset()));
                     Server.SendPacket(receiver, unicastPacket);
@@ -223,7 +179,7 @@ namespace PhenomenalViborg.MUCOSDK
         {
             Debug.Log($"SendLoadExperience({experienceName}");
 
-            using (MUCOPacket packet = new MUCOPacket((int)MUCOServerPackets.LoadExperience))
+            using (MUCOPacket packet = new MUCOPacket((System.UInt16)EPacketIdentifier.ServerLoadExperience))
             {
                 packet.WriteString(experienceName);
                 Server.SendPacketToAll(packet, true);
