@@ -112,7 +112,11 @@ namespace PhenomenalViborg.MUCOSDK
                 // Send load experience, if auto load experience is enabled
                 if (Config.AutoLoadExperience)
                 {
-                    SendLoadExperience(Config.AutoLoadExperienceName);
+                    using (MUCOPacket packet = new MUCOPacket((System.UInt16)EPacketIdentifier.ServerLoadExperience))
+                    {
+                        packet.WriteString(Config.AutoLoadExperienceName);
+                        Server.SendPacket(newClientInfo, packet, true);
+                    }
                 }
             });
         }
