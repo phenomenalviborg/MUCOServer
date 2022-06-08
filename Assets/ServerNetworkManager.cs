@@ -5,6 +5,12 @@ using PhenomenalViborg.MUCONet;
 
 namespace PhenomenalViborg.MUCOSDK
 {
+    public struct ServerConfig
+    {
+        public bool AutoLoadExperience;
+        public string AutoLoadExperienceName;
+    }
+
     public struct DeviceInfo
     {
         public float BatteryLevel;
@@ -26,10 +32,16 @@ namespace PhenomenalViborg.MUCOSDK
         [HideInInspector] public Dictionary<int, DeviceInfo> ClientDeviceInfo = new Dictionary<int, DeviceInfo>();
         [SerializeField] private GameObject m_RemoteUserPrefab = null;
 
+        public ServerConfig Config;
+
         private bool m_Started = false;
 
         private void Start()
         {
+            Config = new ServerConfig();
+            Config.AutoLoadExperience = false;
+            Config.AutoLoadExperienceName = "NewExperience";
+
             MUCOLogger.LogEvent += Log;
             MUCOLogger.LogLevel = m_LogLevel;
 
@@ -95,6 +107,12 @@ namespace PhenomenalViborg.MUCOSDK
                     MUCOPacket packet = new MUCOPacket((System.UInt16)EPacketIdentifier.ServerUserConnected);
                     packet.WriteInt(newClientInfo.UniqueIdentifier);
                     Server.SendPacket(clientInfo, packet);
+                }
+
+                // Send load experience, if auto load experience is enabled
+                if (Config.AutoLoadExperience)
+                {
+                    SendLoadExperience(Config.AutoLoadExperienceName);
                 }
             });
         }

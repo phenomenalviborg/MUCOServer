@@ -8,7 +8,7 @@ namespace PhenomenalViborg.MUCOSDK
     {
         private string m_PortString = "4960";
         private string m_LoadExperienceString = "NewExperience";
-
+        
         private void OnGUI()
         {
             GUILayout.Window(0, new Rect(0, 0, (Screen.width / 2) - 5, Screen.height), RenderServerWindow, "Server");
@@ -17,6 +17,8 @@ namespace PhenomenalViborg.MUCOSDK
 
         private void RenderServerWindow(int windowID)
         {
+            ServerNetworkManager Server = ServerNetworkManager.GetInstance();
+
             GUI.enabled = !ServerNetworkManager.GetInstance().IsStarted();
             GUILayout.BeginHorizontal();
             if (GUILayout.Button("Start Server"))
@@ -40,7 +42,15 @@ namespace PhenomenalViborg.MUCOSDK
             {
                 ServerNetworkManager.GetInstance().StopServer();
             }
+            GUILayout.Space(16);
 
+
+            GUILayout.Label("Server Config");
+            Server.Config.AutoLoadExperience = GUILayout.Toggle(Server.Config.AutoLoadExperience, "Auto Load Experience");
+            Server.Config.AutoLoadExperienceName = GUILayout.TextField(Server.Config.AutoLoadExperienceName, 64);
+            GUILayout.Space(16);
+
+            GUILayout.Label("Commands");
             GUILayout.BeginHorizontal();
             if (GUILayout.Button("Load Experience"))
             {
@@ -48,6 +58,7 @@ namespace PhenomenalViborg.MUCOSDK
             }
             m_LoadExperienceString = GUILayout.TextField(m_LoadExperienceString, 64);
             GUILayout.EndHorizontal();
+
         }
 
         private void RenderInfoWindow(int windowID)
