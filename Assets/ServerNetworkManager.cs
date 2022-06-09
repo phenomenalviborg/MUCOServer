@@ -2,6 +2,10 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using PhenomenalViborg.MUCONet;
+using System.Net;
+using System.Net.Sockets;
+using LiteNetLib;
+using LiteNetLib.Utils;
 
 namespace PhenomenalViborg.MUCOSDK
 {
@@ -20,42 +24,53 @@ namespace PhenomenalViborg.MUCOSDK
         public string OperatingSystem;
     }
 
-    public class ServerNetworkManager : MUCOSingleton<ServerNetworkManager>
+
+    public class ServerNetworkManager : MonoBehaviour, INetEventListener, INetLogger
     {
-        [HideInInspector] public MUCOServer Server { get; private set; } = null;
+        private NetManager m_Server;
+        private System.UInt16 m_IncrementalIdentifier = 0;
+        private List<NetPeer> m_Clients = new List<NetPeer>();
+        private Dictionary<NetPeer, int> m_ClientIDs = new Dictionary<NetPeer, int>();
+        private NetDataWriter m_DataWriter;
 
-        [Header("Debug")]
-        [SerializeField] private MUCOLogMessage.MUCOLogLevel m_LogLevel = MUCOLogMessage.MUCOLogLevel.Trace;
+        public List<NetPeer> Clients => m_Clients;
 
-        // TODO: MOVE
-        //[SerializeField] private Dictionary<int, GameObject> m_UserObjects = new Dictionary<int, GameObject>();
-        //[HideInInspector] public Dictionary<int, DeviceInfo> ClientDeviceInfo = new Dictionary<int, DeviceInfo>();
-        //[SerializeField] private GameObject m_RemoteUserPrefab = null;
-
-        public ServerConfig Config;
+        public delegate void PacketHandler(MUCOPacket packet, NetPeer peer);
+        public Dictionary<System.UInt16, PacketHandler> m_PacketHandlers = new Dictionary<System.UInt16, PacketHandler>();
 
         private bool m_Started = false;
 
         private void Start()
         {
-            Config = new ServerConfig();
-            Config.AutoLoadExperience = false;
-            Config.AutoLoadExperienceName = "NewExperience";
+            RegisterPacketHandler((System.UInt16)EPacketIdentifier.ClientGenericReplicatedUnicast, HandleGenericReplicatedUnicast);
+            RegisterPacketHandler((System.UInt16)EPacketIdentifier.ClientGenericReplicatedMulticast, HandleGenericReplicatedMulticast);
+            StartServer(6000);
+        }
 
-            MUCOLogger.LogEvent += Log;
-            MUCOLogger.LogLevel = m_LogLevel;
+        public void RegisterPacketHandler(System.UInt16 packetIdentifier, PacketHandler packetHandler)
+        {
+            if (m_PacketHandlers.ContainsKey(packetIdentifier))
+            {
+                MUCOLogger.Error($"Failed to register packet handler to packet identifier: {packetIdentifier}. The specified packet identifier has already been assigned a packet handler.");
+                return;
+            }
 
-            Server = new MUCOServer();
-            Server.RegisterPacketHandler((System.UInt16)EPacketIdentifier.ClientGenericReplicatedUnicast, HandleGenericReplicatedUnicast);
-            Server.RegisterPacketHandler((System.UInt16)EPacketIdentifier.ClientGenericReplicatedMulticast, HandleGenericReplicatedMulticast);
-            Server.OnClientConnectedEvent += OnClientConnected;
-            Server.OnClientDisconnectedEvent += OnClientDisconnected;
+            MUCOLogger.Trace($"Successfully assigned a packet handler to packet identifier: {packetIdentifier}");
+
+            m_PacketHandlers.Add(packetIdentifier, packetHandler);
         }
 
         public void StartServer(int port)
         {
+            NetDebug.Logger = this;
+            m_DataWriter = new NetDataWriter();
+            m_Server = new NetManager(this);
+            m_Clients = new List<NetPeer>();
+            m_Server.Start(port);
+            m_Server.BroadcastReceiveEnabled = true;
+            m_Server.UpdateTime = 15;
+
             m_Started = true;
-            Server.Start(port);
         }
 
         public bool IsStarted()
@@ -65,146 +80,205 @@ namespace PhenomenalViborg.MUCOSDK
 
         public void StopServer()
         {
-            Server.Stop();
+            NetDebug.Logger = null;
+            if (m_Server != null)
+            {
+                m_Server.Stop();
+            }
             m_Started = false;
+        }
+
+        private void Update()
+        {
+            if (Input.GetKeyDown(KeyCode.Space))
+            {
+                Debug.Log("sending packet");
+                using (MUCOPacket packet = new MUCOPacket((System.UInt16)EPacketIdentifier.ServerUserConnected))
+                {
+                    packet.WriteInt(123);
+                    SendPacketToAll(packet);
+                }
+            }
+
+            if (m_Started)
+            {
+                m_Server.PollEvents();
+            }
         }
 
         private void OnApplicationQuit()
         {
-            if (m_Started)
+            if (IsStarted())
             {
                 StopServer();
             }
         }
 
-        private void OnClientConnected(MUCOServer.MUCORemoteClient newClientInfo)
+        void INetLogger.WriteNet(NetLogLevel level, string str, params object[] args)
         {
-            MUCOThreadManager.ExecuteOnMainThread(() =>
-            {
-                Debug.Log($"User Connected: {newClientInfo}");
-
-                Debug.Log(Server.ClientInfo.Count);
-
-                for(int i = 0; i < 500; i++)
-                {
-                    MUCOPacket packet = new MUCOPacket((System.UInt16)i);
-                    Server.SendPacket(newClientInfo, packet);
-                }
-
-                // Update the newly connected user about all the other users in existance.
-                foreach (MUCOServer.MUCORemoteClient clientInfo in Server.ClientInfo.Values)
-                {
-                    if (clientInfo.UniqueIdentifier == newClientInfo.UniqueIdentifier)
-                    {
-                        continue;
-                    }
-
-                    MUCOPacket packet = new MUCOPacket((System.UInt16)EPacketIdentifier.ServerUserConnected);
-                    packet.WriteInt(clientInfo.UniqueIdentifier);
-                    Server.SendPacket(newClientInfo, packet);
-                }
-
-                // Spawn the new user on all clients (includeing the new client).
-                foreach (MUCOServer.MUCORemoteClient clientInfo in Server.ClientInfo.Values)
-                {
-                    MUCOPacket packet = new MUCOPacket((System.UInt16)EPacketIdentifier.ServerUserConnected);
-                    packet.WriteInt(newClientInfo.UniqueIdentifier);
-                    Server.SendPacket(clientInfo, packet);
-                }
-            });
+            Debug.LogFormat(str, args);
         }
 
-        private void OnClientDisconnected(MUCOServer.MUCORemoteClient disconnectingClientInfo)
+        void INetEventListener.OnPeerConnected(NetPeer peer)
         {
-            MUCOThreadManager.ExecuteOnMainThread(() =>
-            {
-                Debug.Log($"User Disconnected: {disconnectingClientInfo}");
-
-                // Remove the disconnecting user on all clients (includeing the new client).
-                foreach (MUCOServer.MUCORemoteClient clientInfo in Server.ClientInfo.Values)
-                {
-                    if (clientInfo.UniqueIdentifier == disconnectingClientInfo.UniqueIdentifier)
-                    {
-                        continue;
-                    }
-
-                    MUCOPacket packet = new MUCOPacket((System.UInt16)EPacketIdentifier.ServerUserDisconnected);
-                    packet.WriteInt(disconnectingClientInfo.UniqueIdentifier);
-                    Server.SendPacket(clientInfo, packet);
-                }
-            });
+            m_Clients.Add(peer);
+           
+            OnClientConnected(peer);
         }
 
-        # region Packet handlers
-
-        /*private void HandleDeviceInfo(MUCOPacket packet, int fromClient)
+        void INetEventListener.OnPeerDisconnected(NetPeer peer, DisconnectInfo disconnectInfo)
         {
-            DeviceInfo deviceInfo = new DeviceInfo { };
-
-            deviceInfo.BatteryLevel = packet.ReadFloat();
-            deviceInfo.BatteryStatus = (BatteryStatus)packet.ReadInt();
-            deviceInfo.DeviceModel = packet.ReadString();
-            deviceInfo.DeviceUniqueIdentifier = packet.ReadString();
-            deviceInfo.OperatingSystem = packet.ReadString();
-
-            ClientDeviceInfo[fromClient] = deviceInfo;
-        }*/
-
-        private void HandleGenericReplicatedMulticast(MUCOPacket packet, int fromClient)
-        {
-            MUCOThreadManager.ExecuteOnMainThread(() =>
-            {
-                System.UInt16 packetIdentifier = packet.ReadUInt16();
-                using (MUCOPacket multicastPacket = new MUCOPacket(packetIdentifier))
-                {
-                    multicastPacket.WriteBytes(packet.ReadBytes(packet.GetSize() - packet.GetReadOffset()));
-                    Server.SendPacketToAll(multicastPacket);
-                }
-            });
+            m_Clients.Remove(peer);
+            OnClientDisconnected(peer);
         }
 
-        private void HandleGenericReplicatedUnicast(MUCOPacket packet, int fromClient)
+        void INetEventListener.OnNetworkError(IPEndPoint endPoint, SocketError socketError)
         {
-            MUCOThreadManager.ExecuteOnMainThread(() =>
-            {
-                int receiverIdentifier = packet.ReadInt();
-                if (!Server.ClientInfo.ContainsKey(receiverIdentifier))
-                {
-                    Debug.Log($"Failed to find the designated receiver for unicast packet. The requested identifier was: {receiverIdentifier}.");
-                    return;
-                }
-                MUCOServer.MUCORemoteClient receiver = Server.ClientInfo[receiverIdentifier];
-
-                System.UInt16 packetIdentifier = packet.ReadUInt16();
-                using (MUCOPacket unicastPacket = new MUCOPacket(packetIdentifier))
-                {
-                    unicastPacket.WriteBytes(packet.ReadBytes(packet.GetSize() - packet.GetReadOffset()));
-                    Server.SendPacket(receiver, unicastPacket);
-                }
-            });
+            Debug.Log("[SERVER] error " + socketError);
         }
-        #endregion
 
-        /*#region Packet senders
-
-        public void SendLoadExperience(string experienceName)
+        void INetEventListener.OnNetworkReceive(NetPeer peer, NetPacketReader reader, byte channelNumber, DeliveryMethod deliveryMethod)
         {
-            Debug.Log($"SendLoadExperience({experienceName}");
+            Debug.Log($"OnNetworkReceive, Raw data size: {reader.RawDataSize}, User data size: {reader.UserDataSize}");
 
-            using (MUCOPacket packet = new MUCOPacket((System.UInt16)EPacketIdentifier.ServerLoadExperience))
+
+            byte[] payload = new byte[reader.UserDataSize];
+            reader.GetBytes(payload, reader.UserDataSize);
+            using (MUCOPacket packet = new MUCOPacket(payload))
             {
-                packet.WriteString(experienceName);
-                Server.SendPacketToAll(packet, true);
+                System.UInt16 packetID = packet.ReadUInt16();
+                Debug.Log($"PacketID: {packetID}");
+
+                if (m_PacketHandlers.ContainsKey(packetID))
+                {
+                    m_PacketHandlers[packetID](packet, peer);
+                }
+                else
+                {
+                    Debug.LogError($"Failed to find package handler for packet with identifier: {packetID}");
+                }
             }
         }
-        #endregion*/
 
-        private static void Log(MUCOLogMessage message)
+        void INetEventListener.OnNetworkReceiveUnconnected(IPEndPoint remoteEndPoint, NetPacketReader reader, UnconnectedMessageType messageType)
         {
-            MUCOThreadManager.ExecuteOnMainThread(() =>
-            {
-                Debug.Log(message.ToString());
-            });
         }
+
+        void INetEventListener.OnNetworkLatencyUpdate(NetPeer peer, int latency)
+        {
+        }
+
+        void INetEventListener.OnConnectionRequest(ConnectionRequest request)
+        {
+            Debug.Log("OnConnectionRequest");
+            request.Accept();
+        }
+
+        public void SendPacket(NetPeer receiver, MUCOPacket packet, bool writeSize = true)
+        {
+            m_DataWriter.Reset();
+            m_DataWriter.Put(packet.ToArray(), 0, packet.GetSize());
+            receiver.Send(m_DataWriter, DeliveryMethod.Sequenced);
+
+            Debug.Log($"Sending packet, Size: {packet.GetSize()}");
+        }
+
+        public void SendPacketToAll(MUCOPacket packet)
+        {
+            foreach (NetPeer client in m_Clients)
+            {
+                SendPacket(client, packet, false);
+            }
+        }
+
+        public void SendPacketToAllExcept(MUCOPacket packet, NetPeer exception)
+        {
+            foreach (NetPeer client in m_Clients)
+            {
+                if (client == exception) continue;
+
+                SendPacket(client, packet, false);
+            }
+        }
+
+        private void OnClientConnected(NetPeer newClient)
+        {
+            m_ClientIDs[newClient] = m_IncrementalIdentifier;
+            m_IncrementalIdentifier++;
+
+            Debug.Log($"User Connected: {m_ClientIDs[newClient]}");
+
+            // Update the newly connected user about all the other users in existance.
+            foreach (NetPeer client in m_Clients)
+            {
+                if (client == newClient) continue;
+
+                using (MUCOPacket packet = new MUCOPacket((System.UInt16)EPacketIdentifier.ServerUserConnected))
+                {
+                    packet.WriteInt(m_ClientIDs[client]);
+                    packet.WriteInt(0);
+                    SendPacket(newClient, packet);
+                }
+            }
+
+            using (MUCOPacket packet = new MUCOPacket((System.UInt16)EPacketIdentifier.ServerUserConnected))
+            {
+                packet.WriteInt(m_ClientIDs[newClient]);
+                packet.WriteInt(0);
+                SendPacketToAllExcept(packet, newClient);
+            }
+
+            using (MUCOPacket packet = new MUCOPacket((System.UInt16)EPacketIdentifier.ServerUserConnected))
+            {
+                packet.WriteInt(m_ClientIDs[newClient]);
+                packet.WriteInt(1);
+                SendPacket(newClient, packet);
+            }
+        }
+
+        private void OnClientDisconnected(NetPeer disconnectingClient)
+        {
+            Debug.Log($"User Disconnected: {m_ClientIDs[disconnectingClient]}");
+
+            // Remove the disconnecting user on all clients (includeing the new client).
+            using(MUCOPacket packet = new MUCOPacket((System.UInt16)EPacketIdentifier.ServerUserDisconnected))
+            {
+                packet.WriteInt(m_ClientIDs[disconnectingClient]);
+                SendPacketToAll(packet);
+            }
+        }
+ 
+        private void HandleGenericReplicatedMulticast(MUCOPacket packet, NetPeer sender)
+        {
+            System.UInt16 packetIdentifier = packet.ReadUInt16();
+
+            using (MUCOPacket multicastPacket = new MUCOPacket(packetIdentifier))
+            {
+                multicastPacket.WriteBytes(packet.ReadBytes(packet.GetSize() - packet.GetReadOffset()));
+                SendPacketToAll(multicastPacket);
+            }
+        }
+
+        private void HandleGenericReplicatedUnicast(MUCOPacket packet, NetPeer sender)
+        {
+            int receiverIdentifier = packet.ReadInt();
+            foreach (NetPeer client in m_Clients)
+            {
+                if (receiverIdentifier == m_ClientIDs[client])
+                {
+                    System.UInt16 packetIdentifier = packet.ReadUInt16();
+
+                    using (MUCOPacket unicastPacket = new MUCOPacket(packetIdentifier))
+                    {
+                        unicastPacket.WriteBytes(packet.ReadBytes(packet.GetSize() - packet.GetReadOffset()));
+                        SendPacket(client, unicastPacket);
+                    }
+
+                    return;
+                }
+            }
+
+        }
+
     }
 }
