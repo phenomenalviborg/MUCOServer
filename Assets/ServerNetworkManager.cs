@@ -25,12 +25,12 @@ namespace PhenomenalViborg.MUCOSDK
         [HideInInspector] public MUCOServer Server { get; private set; } = null;
 
         [Header("Debug")]
-        [SerializeField] private MUCOLogMessage.MUCOLogLevel m_LogLevel = MUCOLogMessage.MUCOLogLevel.Info;
+        [SerializeField] private MUCOLogMessage.MUCOLogLevel m_LogLevel = MUCOLogMessage.MUCOLogLevel.Trace;
 
         // TODO: MOVE
-        [SerializeField] private Dictionary<int, GameObject> m_UserObjects = new Dictionary<int, GameObject>();
-        [HideInInspector] public Dictionary<int, DeviceInfo> ClientDeviceInfo = new Dictionary<int, DeviceInfo>();
-        [SerializeField] private GameObject m_RemoteUserPrefab = null;
+        //[SerializeField] private Dictionary<int, GameObject> m_UserObjects = new Dictionary<int, GameObject>();
+        //[HideInInspector] public Dictionary<int, DeviceInfo> ClientDeviceInfo = new Dictionary<int, DeviceInfo>();
+        //[SerializeField] private GameObject m_RemoteUserPrefab = null;
 
         public ServerConfig Config;
 
@@ -81,12 +81,15 @@ namespace PhenomenalViborg.MUCOSDK
         {
             MUCOThreadManager.ExecuteOnMainThread(() =>
             {
-                // Create a user object on the server.
                 Debug.Log($"User Connected: {newClientInfo}");
-                m_UserObjects[newClientInfo.UniqueIdentifier] = Instantiate(m_RemoteUserPrefab);
-                DontDestroyOnLoad(m_UserObjects[newClientInfo.UniqueIdentifier]);
-                User user = m_UserObjects[newClientInfo.UniqueIdentifier].GetComponent<User>();
-                user.Initialize(newClientInfo.UniqueIdentifier, false);
+
+                Debug.Log(Server.ClientInfo.Count);
+
+                for(int i = 0; i < 500; i++)
+                {
+                    MUCOPacket packet = new MUCOPacket((System.UInt16)i);
+                    Server.SendPacket(newClientInfo, packet);
+                }
 
                 // Update the newly connected user about all the other users in existance.
                 foreach (MUCOServer.MUCORemoteClient clientInfo in Server.ClientInfo.Values)
@@ -108,16 +111,6 @@ namespace PhenomenalViborg.MUCOSDK
                     packet.WriteInt(newClientInfo.UniqueIdentifier);
                     Server.SendPacket(clientInfo, packet);
                 }
-
-                // Send load experience, if auto load experience is enabled
-                if (Config.AutoLoadExperience)
-                {
-                    using (MUCOPacket packet = new MUCOPacket((System.UInt16)EPacketIdentifier.ServerLoadExperience))
-                    {
-                        packet.WriteString(Config.AutoLoadExperienceName);
-                        Server.SendPacket(newClientInfo, packet, true);
-                    }
-                }
             });
         }
 
@@ -125,10 +118,7 @@ namespace PhenomenalViborg.MUCOSDK
         {
             MUCOThreadManager.ExecuteOnMainThread(() =>
             {
-                // Destroy disconnected users game object.
                 Debug.Log($"User Disconnected: {disconnectingClientInfo}");
-                Destroy(m_UserObjects[disconnectingClientInfo.UniqueIdentifier]);
-                m_UserObjects[disconnectingClientInfo.UniqueIdentifier] = null;
 
                 // Remove the disconnecting user on all clients (includeing the new client).
                 foreach (MUCOServer.MUCORemoteClient clientInfo in Server.ClientInfo.Values)
@@ -138,7 +128,7 @@ namespace PhenomenalViborg.MUCOSDK
                         continue;
                     }
 
-                    MUCOPacket packet = new MUCOPacket((System.UInt16)EPacketIdentifier.ServerUserConnected);
+                    MUCOPacket packet = new MUCOPacket((System.UInt16)EPacketIdentifier.ServerUserDisconnected);
                     packet.WriteInt(disconnectingClientInfo.UniqueIdentifier);
                     Server.SendPacket(clientInfo, packet);
                 }
@@ -195,7 +185,7 @@ namespace PhenomenalViborg.MUCOSDK
         }
         #endregion
 
-        #region Packet senders
+        /*#region Packet senders
 
         public void SendLoadExperience(string experienceName)
         {
@@ -207,11 +197,14 @@ namespace PhenomenalViborg.MUCOSDK
                 Server.SendPacketToAll(packet, true);
             }
         }
-        #endregion
+        #endregion*/
 
         private static void Log(MUCOLogMessage message)
         {
-            Debug.Log(message.ToString());
+            MUCOThreadManager.ExecuteOnMainThread(() =>
+            {
+                Debug.Log(message.ToString());
+            });
         }
     }
 }

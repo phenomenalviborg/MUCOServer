@@ -238,7 +238,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   m_LogLevel: 2
-  m_RemoteUserPrefab: {fileID: 8466323033043974117, guid: fc832a1110af38e4d86b490cd8561e8c, type: 3}
 --- !u!4 &324236141
 Transform:
   m_ObjectHideFlags: 0
@@ -274,6 +273,6 @@ MonoBehaviour:
   m_GameObject: {fileID: 324236139}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 5364826717540ed419436ee4603f7016, type: 3}
+  m_Script: {fileID: 11500000, guid: ee7c1542543d15742bc3986a61cc255e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 

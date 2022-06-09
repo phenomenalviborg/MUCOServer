@@ -45,7 +45,7 @@ namespace PhenomenalViborg.MUCOSDK
             GUILayout.Space(16);
 
 
-            GUILayout.Label("Server Config");
+            /*GUILayout.Label("Server Config");
             Server.Config.AutoLoadExperience = GUILayout.Toggle(Server.Config.AutoLoadExperience, "Auto Load Experience");
             Server.Config.AutoLoadExperienceName = GUILayout.TextField(Server.Config.AutoLoadExperienceName, 64);
             GUILayout.Space(16);
@@ -57,7 +57,7 @@ namespace PhenomenalViborg.MUCOSDK
                 ServerNetworkManager.GetInstance().SendLoadExperience(m_LoadExperienceString);
             }
             m_LoadExperienceString = GUILayout.TextField(m_LoadExperienceString, 64);
-            GUILayout.EndHorizontal();
+            GUILayout.EndHorizontal();*/
 
         }
 
