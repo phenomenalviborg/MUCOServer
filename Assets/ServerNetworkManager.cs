@@ -25,7 +25,7 @@ namespace PhenomenalViborg.MUCOSDK
     }
 
 
-    public class ServerNetworkManager : MonoBehaviour, INetEventListener, INetLogger
+    public class ServerNetworkManager : PhenomenalViborg.MUCOSDK.IManager<ServerNetworkManager>, INetEventListener, INetLogger
     {
         private NetManager m_Server;
         private System.UInt16 m_IncrementalIdentifier = 0;
@@ -44,7 +44,6 @@ namespace PhenomenalViborg.MUCOSDK
         {
             RegisterPacketHandler((System.UInt16)EPacketIdentifier.ClientGenericReplicatedUnicast, HandleGenericReplicatedUnicast);
             RegisterPacketHandler((System.UInt16)EPacketIdentifier.ClientGenericReplicatedMulticast, HandleGenericReplicatedMulticast);
-            StartServer(6000);
         }
 
         public void RegisterPacketHandler(System.UInt16 packetIdentifier, PacketHandler packetHandler)
